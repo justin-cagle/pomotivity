@@ -6,8 +6,8 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'prompt', // Changed to prompt so we can show a UI to the user
-      includeAssets: ['favicon.svg', 'icons.svg'],
+      registerType: 'prompt',
+      includeAssets: ['favicon.svg'],
       manifest: {
         name: 'Pomotivity',
         short_name: 'Pomotivity',
@@ -26,9 +26,8 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,json,webmanifest}'],
-        cleanupOutdatedCaches: true,
-        clientsClaim: true,
-        skipWaiting: true
+        cleanupOutdatedCaches: true
+        // Removed skipWaiting and clientsClaim to allow 'prompt' to work correctly
       }
     })
   ],

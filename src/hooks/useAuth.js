@@ -4,35 +4,43 @@ const USERS_KEY = 'pomotivity_users';
 const SESSION_KEY = 'pomotivity_current_user';
 const CONFIG_KEY = 'pomotivity_config';
 
-// Load runtime config from window (injected by Docker entrypoint)
-const RUNTIME_CONFIG = window.POMOTIVITY_CONFIG || {};
-
 const INITIAL_USERS = [
-  { 
-    id: 'admin', 
-    username: RUNTIME_CONFIG.ADMIN_USER || 'admin', 
-    password: RUNTIME_CONFIG.ADMIN_PASSWORD || 'password', 
-    role: 'admin', 
-    name: 'System Admin' 
-  }
+  { id: 'admin', username: 'admin', password: 'password', role: 'admin', name: 'System Admin' }
 ];
 
 const DEFAULT_CONFIG = {
-  signupsEnabled: RUNTIME_CONFIG.SIGNUPS_ENABLED !== undefined ? RUNTIME_CONFIG.SIGNUPS_ENABLED : true
+  signupsEnabled: true
 };
 
 export function useAuth() {
+  // Safe helper to get runtime config
+  const getRuntimeConfig = () => {
+    try {
+      return window.POMOTIVITY_CONFIG || {};
+    } catch (e) {
+      return {};
+    }
+  };
+
   const [users, setUsers] = useState(() => {
+    const runtime = getRuntimeConfig();
     const saved = localStorage.getItem(USERS_KEY);
-    const initialList = saved ? JSON.parse(saved) : INITIAL_USERS;
-    
-    // Ensure admin password/username from env vars overrides local if provided
-    return initialList.map(u => {
+    let list = INITIAL_USERS;
+
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) list = parsed;
+      } catch (e) {}
+    }
+
+    // Apply runtime overrides to admin
+    return list.map(u => {
       if (u.id === 'admin') {
         return {
           ...u,
-          username: RUNTIME_CONFIG.ADMIN_USER || u.username,
-          password: RUNTIME_CONFIG.ADMIN_PASSWORD || u.password
+          username: runtime.ADMIN_USER || u.username,
+          password: runtime.ADMIN_PASSWORD || u.password
         };
       }
       return u;
@@ -40,16 +48,31 @@ export function useAuth() {
   });
 
   const [config, setConfig] = useState(() => {
+    const runtime = getRuntimeConfig();
     const saved = localStorage.getItem(CONFIG_KEY);
-    return saved ? JSON.parse(saved) : DEFAULT_CONFIG;
+    let base = { 
+      ...DEFAULT_CONFIG, 
+      signupsEnabled: runtime.SIGNUPS_ENABLED !== undefined ? runtime.SIGNUPS_ENABLED : true 
+    };
+
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return { ...base, ...parsed };
+      } catch (e) {}
+    }
+    return base;
   });
 
   const [currentUser, setCurrentUser] = useState(() => {
     const saved = localStorage.getItem(SESSION_KEY);
     if (!saved) return null;
-    const parsed = JSON.parse(saved);
-    const freshUser = users.find(u => u.id === parsed.id);
-    return freshUser || null;
+    try {
+      const parsed = JSON.parse(saved);
+      return users.find(u => u.id === parsed.id) || null;
+    } catch (e) {
+      return null;
+    }
   });
 
   useEffect(() => {
@@ -79,37 +102,27 @@ export function useAuth() {
 
   const register = useCallback((username, password, name) => {
     if (!config.signupsEnabled) {
-      return { success: false, message: 'New user registrations are currently disabled by an administrator.' };
+      return { success: false, message: 'New user registrations are currently disabled.' };
     }
     if (users.find(u => u.username === username)) {
       return { success: false, message: 'Username already exists' };
     }
-    const newUser = {
-      id: Date.now().toString(),
-      username,
-      password,
-      name,
-      role: 'user'
-    };
+    const newUser = { id: Date.now().toString(), username, password, name, role: 'user' };
     setUsers(prev => [...prev, newUser]);
     setCurrentUser(newUser);
     return { success: true };
   }, [users, config.signupsEnabled]);
 
-  const logout = useCallback(() => {
-    setCurrentUser(null);
-  }, []);
+  const logout = useCallback(() => setCurrentUser(null), []);
 
   const changePassword = useCallback((userId, newPassword) => {
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, password: newPassword } : u));
-    if (currentUser?.id === userId) {
-      setCurrentUser(prev => ({ ...prev, password: newPassword }));
-    }
+    if (currentUser?.id === userId) setCurrentUser(prev => ({ ...prev, password: newPassword }));
     return { success: true };
   }, [currentUser?.id]);
 
   const deleteUser = useCallback((userId) => {
-    if (userId === 'admin') return { success: false, message: 'Cannot delete the system administrator.' };
+    if (userId === 'admin') return { success: false, message: 'Cannot delete admin.' };
     setUsers(prev => prev.filter(u => u.id !== userId));
     localStorage.removeItem(`pomotivity_stats_${userId}`);
     localStorage.removeItem(`pomotivity_settings_${userId}`);
@@ -120,15 +133,5 @@ export function useAuth() {
     setConfig(prev => ({ ...prev, signupsEnabled: enabled }));
   }, []);
 
-  return { 
-    currentUser, 
-    users, 
-    config,
-    login, 
-    register, 
-    logout, 
-    changePassword, 
-    deleteUser, 
-    setSignupsEnabled 
-  };
+  return { currentUser, users, config, login, register, logout, changePassword, deleteUser, setSignupsEnabled };
 }

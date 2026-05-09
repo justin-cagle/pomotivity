@@ -1,24 +1,34 @@
-import React from 'react';
-import { useRegisterSW } from 'virtual:pwa-register/react';
+import React, { useState, useEffect } from 'react';
 import { RefreshCw, X } from 'lucide-react';
+// We use the vanilla registration to be more resilient than the React-specific virtual module
+import { registerSW } from 'virtual:pwa-register';
 
 export default function ReloadPrompt() {
-  const {
-    offlineReady: [offlineReady, setOfflineReady],
-    needUpdate: [needUpdate, setNeedUpdate],
-    updateServiceWorker,
-  } = useRegisterSW({
-    onRegistered(r) {
-      console.log('SW Registered: ' + r);
-    },
-    onRegisterError(error) {
-      console.log('SW registration error', error);
-    },
-  });
+  const [needUpdate, setNeedUpdate] = useState(false);
+  const [offlineReady, setOfflineReady] = useState(false);
+  const [updateFunction, setUpdateFunction] = useState(null);
+
+  useEffect(() => {
+    const updateSW = registerSW({
+      onNeedUpdate() {
+        setNeedUpdate(true);
+      },
+      onOfflineReady() {
+        setOfflineReady(true);
+      },
+    });
+    setUpdateFunction(() => updateSW);
+  }, []);
 
   const close = () => {
     setOfflineReady(false);
     setNeedUpdate(false);
+  };
+
+  const handleUpdate = () => {
+    if (updateFunction) {
+      updateFunction(true);
+    }
   };
 
   if (!offlineReady && !needUpdate) return null;
@@ -66,7 +76,7 @@ export default function ReloadPrompt() {
             <button 
               className="btn btn-primary" 
               style={{ flex: 1, padding: '8px', fontSize: '0.85rem' }}
-              onClick={() => updateServiceWorker(true)}
+              onClick={handleUpdate}
             >
               Update Now
             </button>
