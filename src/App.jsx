@@ -196,7 +196,6 @@ function MainContent({ currentUser, config, logout, changePassword, deleteUser, 
           {activeTab === 'dashboard' && <Dashboard stats={stats} settings={settings} />}
           {activeTab === 'admin' && currentUser.role === 'admin' && (
             <AdminDashboard 
-              users={users} 
               config={config} 
               setSignupsEnabled={setSignupsEnabled} 
               deleteUser={deleteUser}
