@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Users, ShieldCheck, Activity, Award, UserCheck, Trash2, UserPlus, UserMinus, Key } from 'lucide-react';
+import { VERSION } from '../version';
 
 export default function AdminDashboard({ config, setSignupsEnabled, deleteUser, changePassword, currentUserId }) {
   const [users, setUsers] = useState([]);
@@ -59,7 +60,7 @@ export default function AdminDashboard({ config, setSignupsEnabled, deleteUser, 
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <h2 style={{ margin: 0 }}>Admin Control Panel</h2>
-              <span style={{ fontSize: '0.65rem', background: 'var(--accent-work)', color: 'white', padding: '2px 6px', borderRadius: '4px', fontWeight: 800 }}>v1.3.0</span>
+              <span style={{ fontSize: '0.65rem', background: 'var(--accent-work)', color: 'white', padding: '2px 6px', borderRadius: '4px', fontWeight: 800 }}>v{VERSION}</span>
             </div>
             <p style={{ margin: 0, color: 'var(--text-secondary)' }}>Managing {users.length} registered users</p>
           </div>

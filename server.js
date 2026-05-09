@@ -3,6 +3,7 @@ import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import { VERSION } from './src/version.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -150,7 +151,7 @@ app.post('/api/users/:userId/password', (req, res) => {
 
 // Health check
 app.get('/health.json', (req, res) => {
-  res.json({ status: 'up', persistence: 'server-side', version: '1.3.0' });
+  res.json({ status: 'up', persistence: 'server-side', version: VERSION });
 });
 
 // Serve static files
