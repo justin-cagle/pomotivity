@@ -1,137 +1,123 @@
 import { useState, useEffect, useCallback } from 'react';
 
-const USERS_KEY = 'pomotivity_users';
 const SESSION_KEY = 'pomotivity_current_user';
-const CONFIG_KEY = 'pomotivity_config';
-
-const INITIAL_USERS = [
-  { id: 'admin', username: 'admin', password: 'password', role: 'admin', name: 'System Admin' }
-];
-
-const DEFAULT_CONFIG = {
-  signupsEnabled: true
-};
 
 export function useAuth() {
-  // Safe helper to get runtime config
-  const getRuntimeConfig = () => {
-    try {
-      return window.POMOTIVITY_CONFIG || {};
-    } catch (e) {
-      return {};
-    }
-  };
-
-  const [users, setUsers] = useState(() => {
-    const runtime = getRuntimeConfig();
-    const saved = localStorage.getItem(USERS_KEY);
-    let list = INITIAL_USERS;
-
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) list = parsed;
-      } catch (e) {}
-    }
-
-    // Apply runtime overrides to admin
-    return list.map(u => {
-      if (u.id === 'admin') {
-        return {
-          ...u,
-          username: runtime.ADMIN_USER || u.username,
-          password: runtime.ADMIN_PASSWORD || u.password
-        };
-      }
-      return u;
-    });
-  });
-
-  const [config, setConfig] = useState(() => {
-    const runtime = getRuntimeConfig();
-    const saved = localStorage.getItem(CONFIG_KEY);
-    let base = { 
-      ...DEFAULT_CONFIG, 
-      signupsEnabled: runtime.SIGNUPS_ENABLED !== undefined ? runtime.SIGNUPS_ENABLED : true 
-    };
-
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        return { ...base, ...parsed };
-      } catch (e) {}
-    }
-    return base;
-  });
-
   const [currentUser, setCurrentUser] = useState(() => {
     const saved = localStorage.getItem(SESSION_KEY);
-    if (!saved) return null;
-    try {
-      const parsed = JSON.parse(saved);
-      return users.find(u => u.id === parsed.id) || null;
-    } catch (e) {
-      return null;
-    }
+    return saved ? JSON.parse(saved) : null;
   });
 
-  useEffect(() => {
-    localStorage.setItem(USERS_KEY, JSON.stringify(users));
-  }, [users]);
+  const [config, setConfig] = useState({ signupsEnabled: true });
+  const [users, setUsers] = useState([]); // Used for admin view mainly
+
+  // Fetch config and users (if admin)
+  const refreshData = useCallback(async () => {
+    try {
+      const configRes = await fetch('/api/config');
+      if (configRes.ok) setConfig(await configRes.json());
+
+      if (currentUser?.role === 'admin') {
+        // In a real app we'd have a specific endpoint for users list
+        // For simplicity, we'll fetch them if needed
+      }
+    } catch (e) {}
+  }, [currentUser?.role]);
 
   useEffect(() => {
-    localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
-  }, [config]);
+    refreshData();
+  }, [refreshData]);
 
-  useEffect(() => {
-    if (currentUser) {
-      localStorage.setItem(SESSION_KEY, JSON.stringify(currentUser));
-    } else {
-      localStorage.removeItem(SESSION_KEY);
+  const login = useCallback(async (username, password) => {
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCurrentUser(data.user);
+        localStorage.setItem(SESSION_KEY, JSON.stringify(data.user));
+        return { success: true };
+      }
+      return { success: false, message: data.message };
+    } catch (e) {
+      return { success: false, message: 'Server error' };
+    }
+  }, []);
+
+  const register = useCallback(async (username, password, name) => {
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password, name })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCurrentUser(data.user);
+        localStorage.setItem(SESSION_KEY, JSON.stringify(data.user));
+        return { success: true };
+      }
+      return { success: false, message: data.message };
+    } catch (e) {
+      return { success: false, message: 'Server error' };
+    }
+  }, []);
+
+  const logout = useCallback(() => {
+    setCurrentUser(null);
+    localStorage.removeItem(SESSION_KEY);
+  }, []);
+
+  const changePassword = useCallback(async (userId, newPassword) => {
+    try {
+      const res = await fetch(`/api/users/${userId}/password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newPassword })
+      });
+      const data = await res.json();
+      if (data.success && currentUser?.id === userId) {
+        const updated = { ...currentUser, password: newPassword };
+        setCurrentUser(updated);
+        localStorage.setItem(SESSION_KEY, JSON.stringify(updated));
+      }
+      return data;
+    } catch (e) {
+      return { success: false };
     }
   }, [currentUser]);
 
-  const login = useCallback((username, password) => {
-    const user = users.find(u => u.username === username && u.password === password);
-    if (user) {
-      setCurrentUser(user);
-      return { success: true };
+  const deleteUser = useCallback(async (userId) => {
+    try {
+      const res = await fetch(`/api/users/${userId}`, { method: 'DELETE' });
+      return await res.json();
+    } catch (e) {
+      return { success: false };
     }
-    return { success: false, message: 'Invalid credentials' };
-  }, [users]);
-
-  const register = useCallback((username, password, name) => {
-    if (!config.signupsEnabled) {
-      return { success: false, message: 'New user registrations are currently disabled.' };
-    }
-    if (users.find(u => u.username === username)) {
-      return { success: false, message: 'Username already exists' };
-    }
-    const newUser = { id: Date.now().toString(), username, password, name, role: 'user' };
-    setUsers(prev => [...prev, newUser]);
-    setCurrentUser(newUser);
-    return { success: true };
-  }, [users, config.signupsEnabled]);
-
-  const logout = useCallback(() => setCurrentUser(null), []);
-
-  const changePassword = useCallback((userId, newPassword) => {
-    setUsers(prev => prev.map(u => u.id === userId ? { ...u, password: newPassword } : u));
-    if (currentUser?.id === userId) setCurrentUser(prev => ({ ...prev, password: newPassword }));
-    return { success: true };
-  }, [currentUser?.id]);
-
-  const deleteUser = useCallback((userId) => {
-    if (userId === 'admin') return { success: false, message: 'Cannot delete admin.' };
-    setUsers(prev => prev.filter(u => u.id !== userId));
-    localStorage.removeItem(`pomotivity_stats_${userId}`);
-    localStorage.removeItem(`pomotivity_settings_${userId}`);
-    return { success: true };
   }, []);
 
-  const setSignupsEnabled = useCallback((enabled) => {
-    setConfig(prev => ({ ...prev, signupsEnabled: enabled }));
+  const setSignupsEnabled = useCallback(async (enabled) => {
+    try {
+      const res = await fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ signupsEnabled: enabled })
+      });
+      if (res.ok) setConfig(await res.json());
+    } catch (e) {}
   }, []);
 
-  return { currentUser, users, config, login, register, logout, changePassword, deleteUser, setSignupsEnabled };
+  return { 
+    currentUser, 
+    config,
+    login, 
+    register, 
+    logout, 
+    changePassword, 
+    deleteUser, 
+    setSignupsEnabled 
+  };
 }

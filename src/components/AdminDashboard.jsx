@@ -1,27 +1,43 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Users, ShieldCheck, Activity, Award, UserCheck, Trash2, UserPlus, UserMinus, Key } from 'lucide-react';
 
-export default function AdminDashboard({ users, config, setSignupsEnabled, deleteUser, changePassword, currentUserId }) {
-  const getStatsForUser = (userId) => {
+export default function AdminDashboard({ config, setSignupsEnabled, deleteUser, changePassword, currentUserId }) {
+  const [users, setUsers] = useState([]);
+  const [userStatsMap, setUserStatsMap] = useState({});
+
+  const fetchUsers = async () => {
     try {
-      const saved = localStorage.getItem(`pomotivity_stats_${userId}`);
-      return saved ? JSON.parse(saved) : { totalActivities: 0, totalBreaks: 0, currentStreak: 0 };
-    } catch (e) {
-      return { totalActivities: 0, totalBreaks: 0, currentStreak: 0 };
-    }
+      const res = await fetch('/api/users');
+      const data = await res.json();
+      setUsers(data);
+      
+      // Fetch stats for all users
+      const statsMap = {};
+      for (const user of data) {
+        const sRes = await fetch(`/api/data/${user.id}`);
+        const sData = await sRes.json();
+        statsMap[user.id] = sData.stats || { totalActivities: 0, currentStreak: 0 };
+      }
+      setUserStatsMap(statsMap);
+    } catch (e) {}
   };
 
-  const handleDelete = (userId, username) => {
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const handleDelete = async (userId, username) => {
     if (window.confirm(`Are you sure you want to delete user "${username}"? All their stats and settings will be permanently erased.`)) {
-      const res = deleteUser(userId);
-      if (!res.success) alert(res.message);
+      const res = await deleteUser(userId);
+      if (res.success) fetchUsers();
+      else alert(res.message || 'Error deleting user');
     }
   };
 
-  const handleResetPassword = (userId, username) => {
+  const handleResetPassword = async (userId, username) => {
     const newPass = window.prompt(`Enter a new password for "${username}":`);
     if (newPass && newPass.length >= 4) {
-      changePassword(userId, newPass);
+      await changePassword(userId, newPass);
       alert(`Password for "${username}" has been reset.`);
     } else if (newPass) {
       alert("Password must be at least 4 characters.");
@@ -43,7 +59,7 @@ export default function AdminDashboard({ users, config, setSignupsEnabled, delet
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <h2 style={{ margin: 0 }}>Admin Control Panel</h2>
-              <span style={{ fontSize: '0.65rem', background: 'var(--accent-work)', color: 'white', padding: '2px 6px', borderRadius: '4px', fontWeight: 800 }}>v1.2.0</span>
+              <span style={{ fontSize: '0.65rem', background: 'var(--accent-work)', color: 'white', padding: '2px 6px', borderRadius: '4px', fontWeight: 800 }}>v1.3.0</span>
             </div>
             <p style={{ margin: 0, color: 'var(--text-secondary)' }}>Managing {users.length} registered users</p>
           </div>
@@ -73,7 +89,7 @@ export default function AdminDashboard({ users, config, setSignupsEnabled, delet
         
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {users.map(user => {
-            const userStats = getStatsForUser(user.id);
+            const userStats = userStatsMap[user.id] || { totalActivities: 0, currentStreak: 0 };
             const isSelf = user.id === currentUserId;
             const isAdmin = user.role === 'admin';
 

@@ -7,18 +7,22 @@ COPY . .
 RUN npm run build
 
 # Production stage
-FROM nginx:stable-alpine as production-stage
+FROM node:20-alpine as production-stage
+WORKDIR /app
+COPY package*.json ./
+RUN npm install --production
+COPY --from=build-stage /app/dist ./dist
+COPY --from=build-stage /app/server.js ./
+COPY --from=build-stage /app/src/data ./src/data
 
-# Add healthcheck
+# Create data directory for persistence
+RUN mkdir -p /app/data
+
+# Healthcheck
 HEALTHCHECK --interval=30s --timeout=3s \
   CMD wget -qO- http://localhost/health.json | grep -q "up" || exit 1
 
-COPY --from=build-stage /app/dist /usr/share/nginx/html
-COPY docker-entrypoint.sh /docker-entrypoint.sh
-
-RUN chmod +x /docker-entrypoint.sh
-
 EXPOSE 80
+ENV PORT=80
 
-ENTRYPOINT ["/docker-entrypoint.sh"]
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["node", "server.js"]

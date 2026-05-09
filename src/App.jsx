@@ -30,7 +30,6 @@ function App() {
       <MainContent 
         key={currentUser.id} 
         currentUser={currentUser} 
-        users={users} 
         config={config}
         logout={logout} 
         changePassword={changePassword}
@@ -42,7 +41,7 @@ function App() {
   );
 }
 
-function MainContent({ currentUser, users, config, logout, changePassword, deleteUser, setSignupsEnabled }) {
+function MainContent({ currentUser, config, logout, changePassword, deleteUser, setSignupsEnabled }) {
   const settingsHook = useSettings(currentUser.id);
   const settings = settingsHook.settings;
   

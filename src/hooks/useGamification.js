@@ -1,208 +1,132 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { achievements } from '../data/achievements';
 
-const DEFAULT_STATS = {
-  totalBreaks: 0,
-  breaksToday: 0,
+const INITIAL_STATS = {
   totalActivities: 0,
-  lastBreakDate: null,
-  lastResetDate: null,
+  totalBreaks: 0,
   currentStreak: 0,
-  typeCounts: {},
-  unlockedAchievements: [],
-  usageCalendar: {},
-  hasEarlyActivity: false,
-  hasLateActivity: false,
-  todayHistory: []
+  allTimeActivities: 0,
+  achievements: [],
+  history: [], // [{ date: '2023-10-01', activities: [{ type, time, subActivities: [] }] }]
+  lastUpdate: null
 };
 
 export function useGamification(settings, userId) {
-  const storageKey = userId ? `pomotivity_stats_${userId}` : 'pomotivity_stats';
-
-  const [stats, setStats] = useState(() => {
-    try {
-      const saved = localStorage.getItem(storageKey);
-      if (!saved) return DEFAULT_STATS;
-      const parsed = JSON.parse(saved);
-      return { ...DEFAULT_STATS, ...parsed };
-    } catch (e) {
-      return DEFAULT_STATS;
-    }
-  });
-
-  const [currentSessionActivities, setCurrentSessionActivities] = useState([]);
-
-  // Reload stats AND clear buffers when userId changes
-  useEffect(() => {
-    const saved = localStorage.getItem(storageKey);
-    setCurrentSessionActivities([]); // Crucial: clear buffer on user switch
-    
-    if (!saved) {
-      setStats(DEFAULT_STATS);
-    } else {
-      try {
-        const parsed = JSON.parse(saved);
-        setStats({ ...DEFAULT_STATS, ...parsed });
-      } catch (e) {
-        setStats(DEFAULT_STATS);
-      }
-    }
-  }, [storageKey]);
-
+  const [stats, setStats] = useState(INITIAL_STATS);
   const [newAchievement, setNewAchievement] = useState(null);
-  const isCheckingRef = useRef(false);
 
-  const resetDaily = useCallback(() => {
-    const todayStr = new Date().toDateString();
-    setStats(prev => ({ ...prev, breaksToday: 0, todayHistory: [], lastResetDate: todayStr }));
-    setCurrentSessionActivities([]);
-  }, []);
-
-  const resetAll = useCallback(() => {
-    if (window.confirm("Are you sure you want to delete ALL progress? This cannot be undone.")) {
-      setStats(DEFAULT_STATS);
-      localStorage.removeItem(storageKey);
-      setCurrentSessionActivities([]);
-    }
-  }, []);
-
-  const checkAchievements = useCallback(() => {
-    if (isCheckingRef.current || !userId) return;
+  // Load from API
+  useEffect(() => {
+    if (!userId) return;
     
-    const newlyUnlocked = [];
-    achievements.forEach(ach => {
+    const loadStats = async () => {
       try {
-        if (!stats.unlockedAchievements?.includes(ach.id) && ach.condition(stats)) {
-          newlyUnlocked.push(ach.id);
-          setNewAchievement(ach);
-        }
-      } catch (e) {
-        console.error("Achievement error", ach.id, e);
-      }
-    });
-
-    if (newlyUnlocked.length > 0) {
-      isCheckingRef.current = true;
-      setStats(prev => {
-        const next = {
-          ...prev,
-          unlockedAchievements: [...(prev.unlockedAchievements || []), ...newlyUnlocked]
-        };
-        isCheckingRef.current = false;
-        return next;
-      });
-    }
-  }, [stats, userId]);
-
-  useEffect(() => {
-    if (!userId) return;
-    localStorage.setItem(storageKey, JSON.stringify(stats));
-    checkAchievements();
-  }, [stats, checkAchievements, storageKey, userId]);
-
-  useEffect(() => {
-    if (!userId) return;
-    const todayStr = new Date().toDateString();
-    if (stats.lastResetDate !== todayStr) {
-      setStats(prev => {
-        const lastDateStr = prev.lastBreakDate;
-        let newStreak = prev.currentStreak || 0;
-
-        if (lastDateStr && lastDateStr !== todayStr) {
-          const lastDate = new Date(lastDateStr);
-          const today = new Date();
-          today.setHours(0,0,0,0);
-          
-          let daysPassed = 0;
-          let tempDate = new Date(lastDate);
-          tempDate.setHours(0,0,0,0);
-          tempDate.setDate(tempDate.getDate() + 1);
-          
-          const workDays = settings?.workDays || [1, 2, 3, 4, 5];
-          
-          while (tempDate < today && daysPassed < 100) {
-            if (workDays.includes(tempDate.getDay())) daysPassed++;
-            tempDate.setDate(tempDate.getDate() + 1);
+        const res = await fetch(`/api/data/${userId}`);
+        const data = await res.json();
+        if (data.stats) {
+          setStats(data.stats);
+        } else {
+          // Migration from local storage
+          const local = localStorage.getItem(`pomotivity_stats_${userId}`);
+          if (local) {
+            const parsed = JSON.parse(local);
+            setStats(parsed);
+            fetch(`/api/data/${userId}/stats`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: local
+            });
           }
-
-          if (daysPassed >= 1) newStreak = 0;
         }
+      } catch (e) {}
+    };
 
-        return { 
-          ...prev, 
-          breaksToday: 0, 
-          todayHistory: [], 
-          lastResetDate: todayStr,
-          currentStreak: newStreak 
-        };
-      });
-    }
-  }, [stats.lastResetDate, settings?.workDays, userId]);
+    loadStats();
+  }, [userId]);
+
+  const saveStats = useCallback((updatedStats) => {
+    fetch(`/api/data/${userId}/stats`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updatedStats)
+    });
+    localStorage.setItem(`pomotivity_stats_${userId}`, JSON.stringify(updatedStats));
+  }, [userId]);
 
   const logActivity = useCallback((type) => {
-    const now = new Date();
-    const hour = now.getHours();
-    const dateKey = now.toISOString().split('T')[0];
-    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-    setStats(prev => ({
-      ...prev,
-      totalActivities: (prev.totalActivities || 0) + 1,
-      typeCounts: {
-        ...(prev.typeCounts || {}),
-        [type]: ((prev.typeCounts || {})[type] || 0) + 1
-      },
-      usageCalendar: {
-        ...(prev.usageCalendar || {}),
-        [dateKey]: ((prev.usageCalendar || {})[dateKey] || 0) + 1
-      },
-      hasEarlyActivity: prev.hasEarlyActivity || hour < 9,
-      hasLateActivity: prev.hasLateActivity || hour >= 21
-    }));
-
-    setCurrentSessionActivities(prev => [
-      ...prev,
-      { type: 'activity', name: type, time: timeStr, id: Date.now() }
-    ]);
-  }, []);
-
-  const logSession = useCallback(() => {
-    const now = new Date();
-    const todayStr = now.toDateString();
-    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    
     setStats(prev => {
-      let newStreak = prev.currentStreak || 0;
-      if (prev.lastBreakDate !== todayStr) {
-        newStreak += 1;
+      const today = new Date().toLocaleDateString();
+      const newStats = { ...prev };
+      
+      let dayLog = newStats.history.find(h => h.date === today);
+      if (!dayLog) {
+        dayLog = { date: today, sessions: [] };
+        newStats.history.unshift(dayLog);
       }
 
-      const sessionObj = {
-        type: 'session',
-        name: 'Active Break',
-        time: timeStr,
-        id: Date.now(),
-        activities: [...currentSessionActivities]
-      };
+      if (dayLog.sessions.length > 0) {
+        const currentSession = dayLog.sessions[0];
+        currentSession.activities.push({
+          type,
+          time: new Date().toLocaleTimeString(),
+          id: Date.now()
+        });
+      }
 
-      return {
-        ...prev,
-        totalBreaks: (prev.totalBreaks || 0) + 1,
-        breaksToday: (prev.breaksToday || 0) + 1,
-        lastBreakDate: todayStr,
-        lastResetDate: todayStr,
-        currentStreak: newStreak,
-        todayHistory: [
-          sessionObj,
-          ...(prev.todayHistory || [])
-        ]
-      };
+      newStats.totalActivities += 1;
+      newStats.allTimeActivities += 1;
+      
+      saveStats(newStats);
+      return newStats;
     });
+  }, [saveStats]);
 
-    setCurrentSessionActivities([]);
-  }, [currentSessionActivities]);
+  const logSession = useCallback(() => {
+    setStats(prev => {
+      const today = new Date().toLocaleDateString();
+      const newStats = { ...prev };
+      
+      let dayLog = newStats.history.find(h => h.date === today);
+      if (!dayLog) {
+        dayLog = { date: today, sessions: [] };
+        newStats.history.unshift(dayLog);
+      }
 
-  const clearAchievementNotification = useCallback(() => setNewAchievement(null), []);
+      dayLog.sessions.unshift({
+        id: Date.now(),
+        time: new Date().toLocaleTimeString(),
+        activities: []
+      });
 
-  return { stats, logActivity, logSession, newAchievement, clearAchievementNotification, resetDaily, resetAll };
+      newStats.totalBreaks += 1;
+      
+      saveStats(newStats);
+      return newStats;
+    });
+  }, [saveStats]);
+
+  const resetDaily = useCallback(() => {
+    setStats(prev => {
+      const updated = { ...prev, totalActivities: 0, totalBreaks: 0 };
+      saveStats(updated);
+      return updated;
+    });
+  }, [saveStats]);
+
+  const resetAll = useCallback(() => {
+    saveStats(INITIAL_STATS);
+    setStats(INITIAL_STATS);
+  }, [saveStats]);
+
+  const clearAchievementNotification = () => setNewAchievement(null);
+
+  return {
+    stats,
+    logActivity,
+    logSession,
+    newAchievement,
+    clearAchievementNotification,
+    resetDaily,
+    resetAll
+  };
 }
