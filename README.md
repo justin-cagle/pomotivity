@@ -1,3 +1,5 @@
+Note: Pomotivity was fully vibe-coded in a couple of hours with Google Antigravity. I created it entirely for my own use because my doctor said I need to try to move more during the day, but it's here if you want to try it. Feel free to contribute to or fork this project.
+
 # 🍅 Pomotivity
 
 **Gamified Pomodoro PWA for an Active Workday.**
