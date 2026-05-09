@@ -14,6 +14,7 @@ RUN npm install --production
 COPY --from=build-stage /app/dist ./dist
 COPY --from=build-stage /app/server.js ./
 COPY --from=build-stage /app/src/data ./src/data
+COPY --from=build-stage /app/src/version.js ./src/version.js
 
 # Create data directory for persistence
 RUN mkdir -p /app/data
