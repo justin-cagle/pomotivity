@@ -5,27 +5,47 @@ import { VERSION } from '../version';
 export default function AdminDashboard({ config, setSignupsEnabled, deleteUser, changePassword, currentUserId }) {
   const [users, setUsers] = useState([]);
   const [userStatsMap, setUserStatsMap] = useState({});
+  const [loading, setLoading] = useState(true);
 
   const fetchUsers = async () => {
     try {
       const res = await fetch('/api/users');
+      if (!res.ok) throw new Error('Failed to fetch users');
       const data = await res.json();
-      setUsers(data);
       
-      // Fetch stats for all users
-      const statsMap = {};
-      for (const user of data) {
-        const sRes = await fetch(`/api/data/${user.id}`);
-        const sData = await sRes.json();
-        statsMap[user.id] = sData.stats || { totalActivities: 0, currentStreak: 0 };
+      if (Array.isArray(data)) {
+        setUsers(data);
+        
+        const statsMap = {};
+        for (const user of data) {
+          try {
+            const sRes = await fetch(`/api/data/${user.id}`);
+            if (sRes.ok) {
+              const sData = await sRes.json();
+              statsMap[user.id] = sData.stats || { totalActivities: 0, currentStreak: 0 };
+            }
+          } catch (e) {}
+        }
+        setUserStatsMap(statsMap);
       }
-      setUserStatsMap(statsMap);
-    } catch (e) {}
+    } catch (e) {
+      console.error('Admin fetch error:', e);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     fetchUsers();
   }, []);
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem' }}>
+        <div className="animate-spin" style={{ color: 'var(--accent-work)' }}>Loading...</div>
+      </div>
+    );
+  }
 
   const handleDelete = async (userId, username) => {
     if (window.confirm(`Are you sure you want to delete user "${username}"? All their stats and settings will be permanently erased.`)) {
