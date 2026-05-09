@@ -43,7 +43,7 @@ export default function AdminDashboard({ users, config, setSignupsEnabled, delet
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <h2 style={{ margin: 0 }}>Admin Control Panel</h2>
-              <span style={{ fontSize: '0.65rem', background: 'var(--accent-work)', color: 'white', padding: '2px 6px', borderRadius: '4px', fontWeight: 800 }}>v1.1.0</span>
+              <span style={{ fontSize: '0.65rem', background: 'var(--accent-work)', color: 'white', padding: '2px 6px', borderRadius: '4px', fontWeight: 800 }}>v1.2.0</span>
             </div>
             <p style={{ margin: 0, color: 'var(--text-secondary)' }}>Managing {users.length} registered users</p>
           </div>

@@ -243,7 +243,7 @@ export default function SettingsModal({
           {/* App Version */}
           <section style={{ textAlign: 'center', marginTop: '1rem', borderTop: '1px solid var(--ui-border)', paddingTop: '1.5rem' }}>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
-              Pomotivity v1.1.0
+              Pomotivity v1.2.0
             </div>
             <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', opacity: 0.6, marginTop: '4px' }}>
               Built for an Active Workday
