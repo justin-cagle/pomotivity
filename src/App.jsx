@@ -5,6 +5,7 @@ import Dashboard from './components/Dashboard';
 import SettingsModal from './components/SettingsModal';
 import AuthView from './components/AuthView';
 import AdminDashboard from './components/AdminDashboard';
+import ReloadPrompt from './components/ReloadPrompt';
 import { useSettings } from './hooks/useSettings';
 import { useTimer } from './hooks/useTimer';
 import { useGamification } from './hooks/useGamification';
@@ -16,20 +17,28 @@ function App() {
   const { currentUser, users, config, login, register, logout, changePassword, deleteUser, setSignupsEnabled } = useAuth();
   
   if (!currentUser) {
-    return <AuthView login={login} register={register} config={config} />;
+    return (
+      <>
+        <AuthView login={login} register={register} config={config} />
+        <ReloadPrompt />
+      </>
+    );
   }
 
   return (
-    <MainContent 
-      key={currentUser.id} 
-      currentUser={currentUser} 
-      users={users} 
-      config={config}
-      logout={logout} 
-      changePassword={changePassword}
-      deleteUser={deleteUser}
-      setSignupsEnabled={setSignupsEnabled}
-    />
+    <>
+      <MainContent 
+        key={currentUser.id} 
+        currentUser={currentUser} 
+        users={users} 
+        config={config}
+        logout={logout} 
+        changePassword={changePassword}
+        deleteUser={deleteUser}
+        setSignupsEnabled={setSignupsEnabled}
+      />
+      <ReloadPrompt />
+    </>
   );
 }
 

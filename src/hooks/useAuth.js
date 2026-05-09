@@ -4,18 +4,39 @@ const USERS_KEY = 'pomotivity_users';
 const SESSION_KEY = 'pomotivity_current_user';
 const CONFIG_KEY = 'pomotivity_config';
 
+// Load runtime config from window (injected by Docker entrypoint)
+const RUNTIME_CONFIG = window.POMOTIVITY_CONFIG || {};
+
 const INITIAL_USERS = [
-  { id: 'admin', username: 'admin', password: 'password', role: 'admin', name: 'System Admin' }
+  { 
+    id: 'admin', 
+    username: RUNTIME_CONFIG.ADMIN_USER || 'admin', 
+    password: RUNTIME_CONFIG.ADMIN_PASSWORD || 'password', 
+    role: 'admin', 
+    name: 'System Admin' 
+  }
 ];
 
 const DEFAULT_CONFIG = {
-  signupsEnabled: true
+  signupsEnabled: RUNTIME_CONFIG.SIGNUPS_ENABLED !== undefined ? RUNTIME_CONFIG.SIGNUPS_ENABLED : true
 };
 
 export function useAuth() {
   const [users, setUsers] = useState(() => {
     const saved = localStorage.getItem(USERS_KEY);
-    return saved ? JSON.parse(saved) : INITIAL_USERS;
+    const initialList = saved ? JSON.parse(saved) : INITIAL_USERS;
+    
+    // Ensure admin password/username from env vars overrides local if provided
+    return initialList.map(u => {
+      if (u.id === 'admin') {
+        return {
+          ...u,
+          username: RUNTIME_CONFIG.ADMIN_USER || u.username,
+          password: RUNTIME_CONFIG.ADMIN_PASSWORD || u.password
+        };
+      }
+      return u;
+    });
   });
 
   const [config, setConfig] = useState(() => {
@@ -27,8 +48,7 @@ export function useAuth() {
     const saved = localStorage.getItem(SESSION_KEY);
     if (!saved) return null;
     const parsed = JSON.parse(saved);
-    // Refresh current user data from the main users list to catch password/role changes
-    const freshUser = JSON.parse(localStorage.getItem(USERS_KEY) || '[]').find(u => u.id === parsed.id);
+    const freshUser = users.find(u => u.id === parsed.id);
     return freshUser || null;
   });
 
@@ -82,7 +102,6 @@ export function useAuth() {
 
   const changePassword = useCallback((userId, newPassword) => {
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, password: newPassword } : u));
-    // If the current user changed their own password, update the session
     if (currentUser?.id === userId) {
       setCurrentUser(prev => ({ ...prev, password: newPassword }));
     }
@@ -92,11 +111,8 @@ export function useAuth() {
   const deleteUser = useCallback((userId) => {
     if (userId === 'admin') return { success: false, message: 'Cannot delete the system administrator.' };
     setUsers(prev => prev.filter(u => u.id !== userId));
-    
-    // Clear user data from localstorage
     localStorage.removeItem(`pomotivity_stats_${userId}`);
     localStorage.removeItem(`pomotivity_settings_${userId}`);
-    
     return { success: true };
   }, []);
 

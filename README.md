@@ -1,16 +1,91 @@
-# React + Vite
+# 🍅 Pomotivity
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+**Gamified Pomodoro PWA for an Active Workday.**
 
-Currently, two official plugins are available:
+Pomotivity is a premium, open-source productivity tool designed to help you stay focused while ensuring you move your body. It combines a professional Pomodoro timer with a rich gamification engine that tracks your physical activities during breaks.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+![Pomotivity Banner](src/assets/hero.png)
 
-## React Compiler
+## ✨ Features
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Adaptive Timer:** Focus cycles with built-in "Active Breaks".
+- **Movement Engine:** High-impact movement prompts (Cardio, Strength, Stretching, Eye/Neck Care).
+- **Deep Gamification:** 25+ achievements, daily session goals, and work-week aware streaks.
+- **Visual Insights:** Activity heatmaps and a chronological, nested "Today's Log".
+- **Multi-User Support:** Isolated profiles with a dedicated Admin dashboard.
+- **PWA Ready:** Install it on your desktop or mobile for an app-like experience.
+- **Privacy First:** All data is stored locally in your browser.
 
-## Expanding the ESLint configuration
+## 🚀 Quick Start (Docker)
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+The fastest way to deploy Pomotivity is using Docker.
+
+```bash
+docker run -d \
+  -p 3000:80 \
+  --name pomotivity \
+  -e ADMIN_USER=admin \
+  -e ADMIN_PASSWORD=your_secure_password \
+  ghcr.io/justin-cagle/pomotivity:latest
+```
+
+### 🐳 Docker Compose
+
+```yaml
+services:
+  pomotivity:
+    image: ghcr.io/justin-cagle/pomotivity:latest
+    ports:
+      - "3000:80"
+    environment:
+      - ADMIN_USER=admin
+      - ADMIN_PASSWORD=password
+      - SIGNUPS_ENABLED=true
+    restart: always
+```
+
+## ⚙️ Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ADMIN_USER` | `admin` | The initial username for the system administrator. |
+| `ADMIN_PASSWORD` | `password` | The initial password for the system administrator. |
+| `SIGNUPS_ENABLED` | `true` | Whether to allow new user registrations on the login page. |
+
+## 🛠 Local Development
+
+1. **Clone the repo:**
+   ```bash
+   git clone https://github.com/justin-cagle/pomotivity.git
+   cd pomotivity
+   ```
+
+2. **Install dependencies:**
+   ```bash
+   npm install
+   ```
+
+3. **Start development server:**
+   ```bash
+   npm run dev
+   ```
+
+4. **Build for production:**
+   ```bash
+   npm run build
+   ```
+
+## 🏥 Health Check
+
+The container includes a built-in health check that monitors the availability of the web server via `/health.json`.
+
+## 📜 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+---
+*Built with React, Vite, and Lucide Icons.*
