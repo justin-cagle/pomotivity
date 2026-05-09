@@ -1,7 +1,11 @@
-const express = require('express');
-const cors = require('cors');
-const path = require('path');
-const fs = require('fs');
+import express from 'express';
+import cors from 'cors';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 80;
@@ -55,12 +59,6 @@ app.post('/api/auth/login', (req, res) => {
   }
 });
 
-app.get('/api/users', (req, res) => {
-  // In a real app, check for admin token
-  const db = readDB();
-  res.json(db.users);
-});
-
 app.post('/api/auth/register', (req, res) => {
   const { username, password, name } = req.body;
   const db = readDB();
@@ -89,6 +87,11 @@ app.post('/api/config', (req, res) => {
   db.config = { ...db.config, ...req.body };
   writeDB(db);
   res.json(db.config);
+});
+
+app.get('/api/users', (req, res) => {
+  const db = readDB();
+  res.json(db.users);
 });
 
 // --- Data API ---
