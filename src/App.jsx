@@ -13,10 +13,10 @@ import { Settings, Clock, Trophy, LogOut, ShieldAlert, User } from 'lucide-react
 import './App.css';
 
 function App() {
-  const { currentUser, users, login, register, logout } = useAuth();
+  const { currentUser, users, config, login, register, logout, changePassword, deleteUser, setSignupsEnabled } = useAuth();
   
   if (!currentUser) {
-    return <AuthView login={login} register={register} />;
+    return <AuthView login={login} register={register} config={config} />;
   }
 
   return (
@@ -24,12 +24,16 @@ function App() {
       key={currentUser.id} 
       currentUser={currentUser} 
       users={users} 
+      config={config}
       logout={logout} 
+      changePassword={changePassword}
+      deleteUser={deleteUser}
+      setSignupsEnabled={setSignupsEnabled}
     />
   );
 }
 
-function MainContent({ currentUser, users, logout }) {
+function MainContent({ currentUser, users, config, logout, changePassword, deleteUser, setSignupsEnabled }) {
   const settingsHook = useSettings(currentUser.id);
   const settings = settingsHook.settings;
   
@@ -46,15 +50,12 @@ function MainContent({ currentUser, users, logout }) {
   const activityDoneInSession = useRef(false);
   const audioContextRef = useRef(null);
 
-  // Theme Logic
   useEffect(() => {
     const theme = settings.theme || 'system';
     let targetTheme = theme;
-    
     if (theme === 'system') {
       targetTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     }
-    
     document.documentElement.setAttribute('data-theme', targetTheme);
   }, [settings.theme]);
 
@@ -185,7 +186,16 @@ function MainContent({ currentUser, users, logout }) {
             </div>
           )}
           {activeTab === 'dashboard' && <Dashboard stats={stats} settings={settings} />}
-          {activeTab === 'admin' && currentUser.role === 'admin' && <AdminDashboard users={users} />}
+          {activeTab === 'admin' && currentUser.role === 'admin' && (
+            <AdminDashboard 
+              users={users} 
+              config={config} 
+              setSignupsEnabled={setSignupsEnabled} 
+              deleteUser={deleteUser}
+              changePassword={changePassword}
+              currentUserId={currentUser.id}
+            />
+          )}
         </div>
       </main>
 
@@ -203,6 +213,7 @@ function MainContent({ currentUser, users, logout }) {
         isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} settings={settings}
         updateSetting={settingsHook.updateSetting} updateActivityType={settingsHook.updateActivityType} toggleWorkDay={settingsHook.toggleWorkDay}
         resetDaily={resetDaily} resetAll={resetAll}
+        currentUser={currentUser} changePassword={changePassword}
       />
     </div>
   );

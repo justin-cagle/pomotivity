@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { User, Lock, ArrowRight, UserPlus, LogIn } from 'lucide-react';
+import { User, Lock, ArrowRight, UserPlus, LogIn, AlertCircle } from 'lucide-react';
 
-export default function AuthView({ login, register }) {
+export default function AuthView({ login, register, config }) {
   const [isLogin, setIsLogin] = useState(true);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [error, setError] = useState('');
+
+  const signupsEnabled = config?.signupsEnabled !== false;
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -16,6 +18,10 @@ export default function AuthView({ login, register }) {
       const res = login(username, password);
       if (!res.success) setError(res.message);
     } else {
+      if (!signupsEnabled) {
+        setError('New registrations are currently disabled.');
+        return;
+      }
       const res = register(username, password, name);
       if (!res.success) setError(res.message);
     }
@@ -62,7 +68,7 @@ export default function AuthView({ login, register }) {
                 style={{ paddingLeft: '40px', width: '100%' }}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                required
+                required={!isLogin}
               />
             </div>
           )}
@@ -93,26 +99,30 @@ export default function AuthView({ login, register }) {
             />
           </div>
 
-          {error && <div style={{ color: '#ef4444', fontSize: '0.85rem', textAlign: 'center' }}>{error}</div>}
+          {error && (
+            <div style={{ color: '#ef4444', fontSize: '0.85rem', textAlign: 'center', display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'center' }}>
+              <AlertCircle size={14} /> {error}
+            </div>
+          )}
 
           <button className="btn btn-primary" type="submit" style={{ width: '100%', padding: '12px' }}>
             {isLogin ? <><LogIn size={18} /> Log In</> : <><UserPlus size={18} /> Register</>}
           </button>
         </form>
 
-        <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
-          <button 
-            className="btn" 
-            style={{ fontSize: '0.9rem', color: 'var(--accent-work)', fontWeight: 600 }}
-            onClick={() => { setIsLogin(!isLogin); setError(''); }}
-          >
-            {isLogin ? "Don't have an account? Sign Up" : "Already have an account? Log In"}
-          </button>
-        </div>
-        
-        {isLogin && (
-          <div style={{ marginTop: '1rem', textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-            Hint: admin / password
+        {signupsEnabled || isLogin ? (
+          <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
+            <button 
+              className="btn" 
+              style={{ fontSize: '0.9rem', color: 'var(--accent-work)', fontWeight: 600 }}
+              onClick={() => { setIsLogin(!isLogin); setError(''); }}
+            >
+              {isLogin ? "Don't have an account? Sign Up" : "Already have an account? Log In"}
+            </button>
+          </div>
+        ) : (
+          <div style={{ marginTop: '1.5rem', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+            Registration is currently closed. Please contact an admin.
           </div>
         )}
       </div>

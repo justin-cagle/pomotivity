@@ -20,6 +20,7 @@
   --accent-primary-light: var(--accent-work-light);
   
   --ui-border: #e2e8f0;
+  --scrollbar-thumb: #cbd5e1;
 }
 
 [data-theme='dark'] {
@@ -39,6 +40,35 @@
   --accent-break-light: rgba(251, 146, 60, 0.2);
   
   --ui-border: #334155;
+  --scrollbar-thumb: #475569;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-primary);
+  background-clip: content-box;
+}
+
+/* Firefox support */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 }
 
 * {

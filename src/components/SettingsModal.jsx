@@ -1,28 +1,50 @@
-import React from 'react';
-import { X, Settings2, Trash2, Calendar } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, Moon, Sun, Monitor, Bell, Eye, EyeOff, Play, RotateCcw, Trash2, Calendar, Target, Lock, Check, AlertCircle } from 'lucide-react';
 
-const DAYS = [
-  { label: 'S', value: 0 },
-  { label: 'M', value: 1 },
-  { label: 'T', value: 2 },
-  { label: 'W', value: 3 },
-  { label: 'T', value: 4 },
-  { label: 'F', value: 5 },
-  { label: 'S', value: 6 }
-];
+export default function SettingsModal({ 
+  isOpen, 
+  onClose, 
+  settings, 
+  updateSetting, 
+  updateActivityType, 
+  toggleWorkDay,
+  resetDaily, 
+  resetAll,
+  currentUser,
+  changePassword
+}) {
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordMsg, setPasswordMsg] = useState({ type: '', text: '' });
 
-export default function SettingsModal({ isOpen, onClose, settings, updateSetting, updateActivityType, toggleWorkDay, resetDaily, resetAll }) {
   if (!isOpen) return null;
+
+  const handlePasswordChange = (e) => {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) {
+      setPasswordMsg({ type: 'error', text: 'Passwords do not match' });
+      return;
+    }
+    if (newPassword.length < 4) {
+      setPasswordMsg({ type: 'error', text: 'Password must be at least 4 characters' });
+      return;
+    }
+    changePassword(currentUser.id, newPassword);
+    setPasswordMsg({ type: 'success', text: 'Password updated successfully!' });
+    setNewPassword('');
+    setConfirmPassword('');
+    setTimeout(() => setPasswordMsg({ type: '', text: '' }), 3000);
+  };
 
   return (
     <div style={{
       position: 'fixed',
-      top: 0, left: 0, right: 0, bottom: 0,
-      background: 'rgba(0, 0, 0, 0.5)',
-      backdropFilter: 'blur(4px)',
+      inset: 0,
+      background: 'rgba(0, 0, 0, 0.4)',
+      backdropFilter: 'blur(8px)',
       display: 'flex',
-      justifyContent: 'center',
       alignItems: 'center',
+      justifyContent: 'center',
       zIndex: 100,
       padding: '1rem'
     }}>
@@ -34,104 +56,191 @@ export default function SettingsModal({ isOpen, onClose, settings, updateSetting
         padding: '2rem',
         position: 'relative'
       }}>
-        <button onClick={onClose} className="btn btn-icon" style={{ position: 'absolute', top: '1rem', right: '1rem' }}>
+        <button className="btn btn-icon" onClick={onClose} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem' }}>
           <X size={20} />
         </button>
 
-        <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '0 0 2rem 0' }}>
-          <Settings2 /> Settings
-        </h2>
+        <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '2rem' }}>Settings</h2>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
           
+          {/* Timer Configuration */}
           <section>
-            <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', borderBottom: '1px solid var(--ui-border)', paddingBottom: '0.5rem' }}>Work Week</h3>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '4px' }}>
-              {DAYS.map(day => (
-                <button
-                  key={day.value}
-                  onClick={() => toggleWorkDay(day.value)}
-                  style={{
-                    flex: 1,
-                    height: '40px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--ui-border)',
-                    background: settings.workDays.includes(day.value) ? 'var(--accent-work)' : 'transparent',
-                    color: settings.workDays.includes(day.value) ? 'white' : 'var(--text-primary)',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    transition: 'all 0.2s'
-                  }}
+            <h3 style={{ fontSize: '1rem', color: 'var(--text-secondary)', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Target size={18} /> Focus Intervals
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div>
+                <label style={{ fontSize: '0.85rem', fontWeight: 600, display: 'block', marginBottom: '8px' }}>Work (min)</label>
+                <input 
+                  type="number" 
+                  value={settings.workDuration} 
+                  onChange={(e) => updateSetting('workDuration', parseInt(e.target.value))}
+                  style={{ width: '100%' }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.85rem', fontWeight: 600, display: 'block', marginBottom: '8px' }}>Break (min)</label>
+                <input 
+                  type="number" 
+                  value={settings.breakDuration} 
+                  onChange={(e) => updateSetting('breakDuration', parseInt(e.target.value))}
+                  style={{ width: '100%' }}
+                />
+              </div>
+            </div>
+            <div style={{ marginTop: '1.25rem' }}>
+              <label style={{ fontSize: '0.85rem', fontWeight: 600, display: 'block', marginBottom: '8px' }}>Daily Goal (sessions)</label>
+              <input 
+                type="number" 
+                value={settings.dailyGoal} 
+                onChange={(e) => updateSetting('dailyGoal', parseInt(e.target.value))}
+                style={{ width: '100%' }}
+              />
+            </div>
+          </section>
+
+          {/* Work Week */}
+          <section>
+            <h3 style={{ fontSize: '1rem', color: 'var(--text-secondary)', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Calendar size={18} /> Work Week
+            </h3>
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, idx) => {
+                const isActive = settings.workDays.includes(idx);
+                return (
+                  <button 
+                    key={day}
+                    onClick={() => toggleWorkDay(idx)}
+                    style={{
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      fontSize: '0.8rem',
+                      fontWeight: 600,
+                      border: '1px solid var(--ui-border)',
+                      background: isActive ? 'var(--accent-work)' : 'transparent',
+                      color: isActive ? 'white' : 'var(--text-secondary)',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    {day}
+                  </button>
+                );
+              })}
+            </div>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '8px' }}>
+              Your streak won't break on unselected days.
+            </p>
+          </section>
+
+          {/* Theme Selector */}
+          <section>
+            <h3 style={{ fontSize: '1rem', color: 'var(--text-secondary)', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {settings.theme === 'dark' ? <Moon size={18} /> : settings.theme === 'light' ? <Sun size={18} /> : <Monitor size={18} />} Appearance
+            </h3>
+            <div style={{ display: 'flex', gap: '8px', background: 'var(--bg-secondary)', padding: '4px', borderRadius: '12px' }}>
+              {['light', 'dark', 'system'].map(t => (
+                <button 
+                  key={t}
+                  className={`btn ${settings.theme === t ? 'btn-primary' : ''}`}
+                  onClick={() => updateSetting('theme', t)}
+                  style={{ flex: 1, textTransform: 'capitalize', fontSize: '0.85rem' }}
                 >
-                  {day.label}
+                  {t}
                 </button>
               ))}
             </div>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '8px' }}>Selected days are counted towards your activity streak.</p>
           </section>
 
+          {/* Notifications */}
           <section>
-            <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', borderBottom: '1px solid var(--ui-border)', paddingBottom: '0.5rem' }}>Timer Intervals (min)</h3>
-            <div style={{ display: 'flex', gap: '1rem' }}>
-              <div style={{ flex: 1 }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }}>Work</label>
-                <input type="number" value={settings.workDuration} onChange={(e) => updateSetting('workDuration', Number(e.target.value))} style={{ width: '100%' }} min="1" />
-              </div>
-              <div style={{ flex: 1 }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }}>Break</label>
-                <input type="number" value={settings.breakDuration} onChange={(e) => updateSetting('breakDuration', Number(e.target.value))} style={{ width: '100%' }} min="1" />
-              </div>
-            </div>
-          </section>
-
-          <section>
-            <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', borderBottom: '1px solid var(--ui-border)', paddingBottom: '0.5rem' }}>Behavior</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <label>Theme</label>
-                <select value={settings.theme} onChange={(e) => updateSetting('theme', e.target.value)}>
-                  <option value="light">Light</option>
-                  <option value="dark">Dark</option>
-                  <option value="system">System</option>
-                </select>
-              </div>
-              {['audioNotifications', 'visualNotifications', 'systemNotifications', 'showInstructions', 'autoStartWork'].map(key => (
-                <label key={key} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                  <input type="checkbox" checked={settings[key]} onChange={(e) => updateSetting(key, e.target.checked)} />
-                  {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+            <h3 style={{ fontSize: '1rem', color: 'var(--text-secondary)', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Bell size={18} /> Notifications
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {[
+                { key: 'visualNotifications', label: 'Screen Flash' },
+                { key: 'audioNotifications', label: 'Audio Cues' },
+                { key: 'systemNotifications', label: 'Desktop Notifications' },
+                { key: 'showInstructions', label: 'Show Exercise Instructions' },
+                { key: 'autoStartWork', label: 'Auto-start next work cycle' }
+              ].map(({ key, label }) => (
+                <label key={key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
+                  <span style={{ fontSize: '0.9rem' }}>{label}</span>
+                  <input 
+                    type="checkbox" 
+                    checked={settings[key]} 
+                    onChange={(e) => updateSetting(key, e.target.checked)}
+                    style={{ width: '20px', height: '20px', accentColor: 'var(--accent-work)' }}
+                  />
                 </label>
               ))}
             </div>
           </section>
 
+          {/* Security */}
           <section>
-            <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', borderBottom: '1px solid var(--ui-border)', paddingBottom: '0.5rem' }}>Danger Zone</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <h3 style={{ fontSize: '1rem', color: 'var(--text-secondary)', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Lock size={18} /> Security
+            </h3>
+            <form onSubmit={handlePasswordChange} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <input 
+                  type="password" 
+                  placeholder="New Password" 
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  style={{ width: '100%' }}
+                />
+                <input 
+                  type="password" 
+                  placeholder="Confirm New Password" 
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  style={{ width: '100%' }}
+                />
+              </div>
+              <button type="submit" className="btn btn-primary" style={{ padding: '8px', fontSize: '0.85rem' }}>
+                Update Password
+              </button>
+              {passwordMsg.text && (
+                <div style={{ 
+                  fontSize: '0.8rem', 
+                  color: passwordMsg.type === 'error' ? '#ef4444' : '#10b981',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}>
+                  {passwordMsg.type === 'error' ? <AlertCircle size={14} /> : <Check size={14} />}
+                  {passwordMsg.text}
+                </div>
+              )}
+            </form>
+          </section>
+
+          {/* Danger Zone */}
+          <section style={{ borderTop: '1px solid var(--ui-border)', paddingTop: '2.5rem' }}>
+            <h3 style={{ fontSize: '1rem', color: '#ef4444', marginBottom: '1.25rem', fontWeight: 700 }}>Danger Zone</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <button 
-                onClick={() => { resetDaily(); alert("Today's progress reset!"); }}
                 className="btn" 
-                style={{ justifyContent: 'start', color: '#ef4444', border: '1px solid #ef4444' }}
+                onClick={() => { resetDaily(); onClose(); }}
+                style={{ width: '100%', justifyContent: 'flex-start', color: '#ef4444', border: '1px solid #ef4444', background: 'rgba(239, 68, 68, 0.05)' }}
               >
-                <RotateCcw size={16} /> Reset Today's Progress
+                <RotateCcw size={18} /> Reset Today's Progress
               </button>
               <button 
-                onClick={resetAll}
                 className="btn" 
-                style={{ justifyContent: 'start', color: '#ef4444', border: '1px solid #ef4444' }}
+                onClick={() => { resetAll(); onClose(); }}
+                style={{ width: '100%', justifyContent: 'flex-start', background: '#ef4444', color: 'white' }}
               >
-                <Trash2 size={16} /> Delete All-Time Data
+                <Trash2 size={18} /> Wipe All-Time Data
               </button>
             </div>
           </section>
-
         </div>
       </div>
     </div>
-  );
-}
-
-function RotateCcw({ size }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
   );
 }
