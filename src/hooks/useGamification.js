@@ -16,10 +16,12 @@ const DEFAULT_STATS = {
   todayHistory: []
 };
 
-export function useGamification(settings) {
+export function useGamification(settings, userId) {
+  const storageKey = userId ? `pomotivity_stats_${userId}` : 'pomotivity_stats';
+
   const [stats, setStats] = useState(() => {
     try {
-      const saved = localStorage.getItem('pomotivity_stats');
+      const saved = localStorage.getItem(storageKey);
       if (!saved) return DEFAULT_STATS;
       const parsed = JSON.parse(saved);
       return { ...DEFAULT_STATS, ...parsed };
@@ -28,32 +30,44 @@ export function useGamification(settings) {
     }
   });
 
-  const [newAchievement, setNewAchievement] = useState(null);
   const [currentSessionActivities, setCurrentSessionActivities] = useState([]);
+
+  // Reload stats AND clear buffers when userId changes
+  useEffect(() => {
+    const saved = localStorage.getItem(storageKey);
+    setCurrentSessionActivities([]); // Crucial: clear buffer on user switch
+    
+    if (!saved) {
+      setStats(DEFAULT_STATS);
+    } else {
+      try {
+        const parsed = JSON.parse(saved);
+        setStats({ ...DEFAULT_STATS, ...parsed });
+      } catch (e) {
+        setStats(DEFAULT_STATS);
+      }
+    }
+  }, [storageKey]);
+
+  const [newAchievement, setNewAchievement] = useState(null);
   const isCheckingRef = useRef(false);
 
   const resetDaily = useCallback(() => {
     const todayStr = new Date().toDateString();
-    setStats(prev => ({ 
-      ...prev, 
-      breaksToday: 0, 
-      todayHistory: [], 
-      lastResetDate: todayStr 
-    }));
-    // Also clear the buffer if one is active
+    setStats(prev => ({ ...prev, breaksToday: 0, todayHistory: [], lastResetDate: todayStr }));
     setCurrentSessionActivities([]);
   }, []);
 
   const resetAll = useCallback(() => {
     if (window.confirm("Are you sure you want to delete ALL progress? This cannot be undone.")) {
       setStats(DEFAULT_STATS);
-      localStorage.removeItem('pomotivity_stats');
+      localStorage.removeItem(storageKey);
       setCurrentSessionActivities([]);
     }
   }, []);
 
   const checkAchievements = useCallback(() => {
-    if (isCheckingRef.current) return;
+    if (isCheckingRef.current || !userId) return;
     
     const newlyUnlocked = [];
     achievements.forEach(ach => {
@@ -78,15 +92,16 @@ export function useGamification(settings) {
         return next;
       });
     }
-  }, [stats]);
+  }, [stats, userId]);
 
   useEffect(() => {
-    localStorage.setItem('pomotivity_stats', JSON.stringify(stats));
+    if (!userId) return;
+    localStorage.setItem(storageKey, JSON.stringify(stats));
     checkAchievements();
-  }, [stats, checkAchievements]);
+  }, [stats, checkAchievements, storageKey, userId]);
 
-  // Daily Reset Logic
   useEffect(() => {
+    if (!userId) return;
     const todayStr = new Date().toDateString();
     if (stats.lastResetDate !== todayStr) {
       setStats(prev => {
@@ -122,7 +137,7 @@ export function useGamification(settings) {
         };
       });
     }
-  }, [stats.lastResetDate, settings.workDays]);
+  }, [stats.lastResetDate, settings?.workDays, userId]);
 
   const logActivity = useCallback((type) => {
     const now = new Date();

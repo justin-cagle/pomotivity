@@ -3,20 +3,40 @@ import Timer from './components/Timer';
 import MovementPrompt from './components/MovementPrompt';
 import Dashboard from './components/Dashboard';
 import SettingsModal from './components/SettingsModal';
+import AuthView from './components/AuthView';
+import AdminDashboard from './components/AdminDashboard';
 import { useSettings } from './hooks/useSettings';
 import { useTimer } from './hooks/useTimer';
 import { useGamification } from './hooks/useGamification';
-import { Settings, Clock, Trophy } from 'lucide-react';
+import { useAuth } from './hooks/useAuth';
+import { Settings, Clock, Trophy, LogOut, ShieldAlert, User } from 'lucide-react';
 import './App.css';
 
 function App() {
-  const settingsHook = useSettings();
-  const settings = settingsHook?.settings || {};
+  const { currentUser, users, login, register, logout } = useAuth();
+  
+  if (!currentUser) {
+    return <AuthView login={login} register={register} />;
+  }
+
+  return (
+    <MainContent 
+      key={currentUser.id} 
+      currentUser={currentUser} 
+      users={users} 
+      logout={logout} 
+    />
+  );
+}
+
+function MainContent({ currentUser, users, logout }) {
+  const settingsHook = useSettings(currentUser.id);
+  const settings = settingsHook.settings;
   
   const timer = useTimer(settings);
-  const gamification = useGamification(settings);
+  const gamification = useGamification(settings, currentUser.id);
   
-  const { stats, logActivity, logSession, newAchievement, clearAchievementNotification, resetDaily, resetAll } = gamification || {};
+  const { stats, logActivity, logSession, newAchievement, clearAchievementNotification, resetDaily, resetAll } = gamification;
   
   const [activeTab, setActiveTab] = useState('timer');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -26,7 +46,18 @@ function App() {
   const activityDoneInSession = useRef(false);
   const audioContextRef = useRef(null);
 
-  // Initialize AudioContext on first user interaction
+  // Theme Logic
+  useEffect(() => {
+    const theme = settings.theme || 'system';
+    let targetTheme = theme;
+    
+    if (theme === 'system') {
+      targetTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    
+    document.documentElement.setAttribute('data-theme', targetTheme);
+  }, [settings.theme]);
+
   const initAudio = useCallback(() => {
     if (!audioContextRef.current) {
       audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
@@ -37,7 +68,6 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
     const handleResize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener('resize', handleResize);
     window.addEventListener('click', initAudio, { once: true });
@@ -49,20 +79,15 @@ function App() {
     };
   }, [initAudio]);
 
-  // Notifications Effect
   useEffect(() => {
-    if (timer?.timerState === 'WORK' || timer?.timerState === 'BREAK') {
-      // Visual Flash
-      if (settings?.visualNotifications) {
+    if (timer.timerState === 'WORK' || timer.timerState === 'BREAK') {
+      if (settings.visualNotifications) {
         setFlash(true);
         setTimeout(() => setFlash(false), 500);
       }
-
-      // Audio Beep
-      if (settings?.audioNotifications && audioContextRef.current) {
+      if (settings.audioNotifications && audioContextRef.current) {
         try {
           const ctx = audioContextRef.current;
-          if (ctx.state === 'suspended') ctx.resume();
           const osc = ctx.createOscillator();
           const gain = ctx.createGain();
           osc.type = 'sine';
@@ -73,64 +98,42 @@ function App() {
           gain.connect(ctx.destination);
           osc.start();
           osc.stop(ctx.currentTime + 0.2);
-        } catch (e) {
-          console.warn('Audio play failed', e);
-        }
+        } catch (e) {}
       }
-
-      // System Notification
-      if (settings?.systemNotifications && Notification.permission === 'granted') {
+      if (settings.systemNotifications && Notification.permission === 'granted') {
         new Notification('Pomotivity', {
           body: timer.timerState === 'WORK' ? 'Focus time starts now!' : 'Time for an active break!',
           icon: '/pwa-192x192.png'
         });
       }
     }
-
-    if (timer?.timerState === 'BREAK') {
+    if (timer.timerState === 'BREAK') {
       activityDoneInSession.current = false;
     }
-  }, [timer?.timerState, settings?.visualNotifications, settings?.audioNotifications, settings?.systemNotifications]);
+  }, [timer.timerState, settings.visualNotifications, settings.audioNotifications, settings.systemNotifications]);
 
-  // Request system notification permission
+  const prevTimerState = useRef(timer.timerState);
   useEffect(() => {
-    if (settings?.systemNotifications && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
-      Notification.requestPermission();
+    if (prevTimerState.current === 'BREAK' && (timer.timerState === 'IDLE' || timer.timerState === 'WORK')) {
+      if (activityDoneInSession.current) logSession();
     }
-  }, [settings?.systemNotifications]);
-
-  const prevTimerState = useRef(timer?.timerState);
-  useEffect(() => {
-    if (prevTimerState.current === 'BREAK' && (timer?.timerState === 'IDLE' || timer?.timerState === 'WORK')) {
-      if (activityDoneInSession.current && logSession) {
-        logSession();
-      }
-    }
-    prevTimerState.current = timer?.timerState;
-  }, [timer?.timerState, logSession]);
+    prevTimerState.current = timer.timerState;
+  }, [timer.timerState, logSession]);
 
   const handleCompleteActivity = useCallback((type) => {
-    if (logActivity) logActivity(type);
+    logActivity(type);
     activityDoneInSession.current = true;
   }, [logActivity]);
-
-  const handleSkipBreak = useCallback(() => {
-    if (timer?.skipBreak) timer.skipBreak();
-  }, [timer]);
-
-  const safeStats = stats || {};
-  const safeTimer = timer || { timerState: 'IDLE', formattedTime: '00:00', progress: 0 };
 
   return (
     <div style={{
       minHeight: '100vh',
       display: 'flex',
       flexDirection: 'column',
-      backgroundColor: flash ? (safeTimer.timerState === 'WORK' ? 'var(--accent-work-light)' : 'var(--accent-break-light)') : 'var(--bg-primary)',
+      backgroundColor: flash ? (timer.timerState === 'WORK' ? 'var(--accent-work-light)' : 'var(--accent-break-light)') : 'var(--bg-primary)',
       transition: 'background-color 0.5s ease',
       color: 'var(--text-primary)'
     }}>
-      
       <header style={{ 
         padding: '1rem 2rem', 
         display: 'flex', 
@@ -143,84 +146,63 @@ function App() {
         top: 0,
         zIndex: 50
       }}>
-        <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-1px' }}>
-          Pomotivity
-        </h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-1px' }}>Pomotivity</h1>
+          <div style={{ padding: '4px 8px', borderRadius: '6px', background: 'var(--bg-secondary)', fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+            {currentUser.name}
+          </div>
+        </div>
         
-        {isMobile && (
-          <nav style={{ display: 'flex', gap: '4px', background: 'var(--bg-secondary)', padding: '4px', borderRadius: '10px' }}>
-            <button className={`btn ${activeTab === 'timer' ? 'btn-primary' : ''}`} onClick={() => setActiveTab('timer')} style={{ padding: '6px 12px', borderRadius: '8px' }}>
-              <Clock size={18} />
+        <nav style={{ display: 'flex', gap: '4px', background: 'var(--bg-secondary)', padding: '4px', borderRadius: '10px' }}>
+          <button className={`btn ${activeTab === 'timer' ? 'btn-primary' : ''}`} onClick={() => setActiveTab('timer')} style={{ padding: '6px 12px', borderRadius: '8px' }}>
+            <Clock size={18} /> {!isMobile && <span style={{marginLeft: '6px'}}>Timer</span>}
+          </button>
+          <button className={`btn ${activeTab === 'dashboard' ? 'btn-primary' : ''}`} onClick={() => setActiveTab('dashboard')} style={{ padding: '6px 12px', borderRadius: '8px' }}>
+            <Trophy size={18} /> {!isMobile && <span style={{marginLeft: '6px'}}>Progress</span>}
+          </button>
+          {currentUser.role === 'admin' && (
+            <button className={`btn ${activeTab === 'admin' ? 'btn-primary' : ''}`} onClick={() => setActiveTab('admin')} style={{ padding: '6px 12px', borderRadius: '8px' }}>
+              <ShieldAlert size={18} /> {!isMobile && <span style={{marginLeft: '6px'}}>Admin</span>}
             </button>
-            <button className={`btn ${activeTab === 'dashboard' ? 'btn-primary' : ''}`} onClick={() => setActiveTab('dashboard')} style={{ padding: '6px 12px', borderRadius: '8px' }}>
-              <Trophy size={18} />
-            </button>
-          </nav>
-        )}
+          )}
+        </nav>
 
-        <button className="btn btn-icon" onClick={() => setIsSettingsOpen(true)}>
-          <Settings size={20} />
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button className="btn btn-icon" onClick={() => setIsSettingsOpen(true)}><Settings size={20} /></button>
+          <button className="btn btn-icon" onClick={logout} style={{ color: '#ef4444' }}><LogOut size={20} /></button>
+        </div>
       </header>
 
-      <main style={{ 
-        padding: isMobile ? '1.5rem' : '2.5rem', 
-        flex: 1,
-        maxWidth: '1200px',
-        margin: '0 auto',
-        width: '100%'
-      }}>
-        {isMobile ? (
-          <div className="animate-slide-up">
-            {activeTab === 'timer' ? (
+      <main style={{ padding: isMobile ? '1.5rem' : '2.5rem', flex: 1, maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
+        <div className="animate-slide-up">
+          {activeTab === 'timer' && (
+            <div style={{ display: isMobile ? 'flex' : 'grid', gridTemplateColumns: isMobile ? 'none' : '1fr 380px', flexDirection: 'column', gap: '2.5rem', alignItems: isMobile ? 'center' : 'start' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', alignItems: 'center' }}>
-                <Timer timer={safeTimer} settings={settings} stats={safeStats} />
-                <MovementPrompt isActive={safeTimer.timerState === 'BREAK'} settings={settings} onCompleteActivity={handleCompleteActivity} onSkipBreak={handleSkipBreak} />
+                <Timer timer={timer} settings={settings} stats={stats} />
+                <MovementPrompt isActive={timer.timerState === 'BREAK'} settings={settings} onCompleteActivity={handleCompleteActivity} onSkipBreak={timer.skipBreak} />
               </div>
-            ) : (
-              <Dashboard stats={safeStats} settings={settings} />
-            )}
-          </div>
-        ) : (
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: '1fr 380px', 
-            gap: '2.5rem',
-            alignItems: 'start'
-          }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', alignItems: 'center' }}>
-              <Timer timer={safeTimer} settings={settings} stats={safeStats} />
-              <MovementPrompt isActive={safeTimer.timerState === 'BREAK'} settings={settings} onCompleteActivity={handleCompleteActivity} onSkipBreak={handleSkipBreak} />
+              {!isMobile && <div style={{ position: 'sticky', top: '6rem' }}><Dashboard stats={stats} settings={settings} /></div>}
             </div>
-            <div style={{ position: 'sticky', top: '6rem' }}>
-              <Dashboard stats={safeStats} settings={settings} />
-            </div>
-          </div>
-        )}
+          )}
+          {activeTab === 'dashboard' && <Dashboard stats={stats} settings={settings} />}
+          {activeTab === 'admin' && currentUser.role === 'admin' && <AdminDashboard users={users} />}
+        </div>
       </main>
 
       {newAchievement && (
-        <div className="glass-panel animate-slide-up" style={{
-          position: 'fixed', bottom: '2rem', right: '2rem', padding: '1rem 1.5rem',
-          display: 'flex', alignItems: 'center', gap: '12px', border: '2px solid #eab308', zIndex: 60, cursor: 'pointer'
-        }} onClick={clearAchievementNotification}>
-          <div style={{ fontSize: '2rem' }}>{newAchievement?.icon || '🏆'}</div>
+        <div className="glass-panel animate-slide-up" style={{ position: 'fixed', bottom: '2rem', right: '2rem', padding: '1rem 1.5rem', display: 'flex', alignItems: 'center', gap: '12px', border: '2px solid #eab308', zIndex: 60, cursor: 'pointer' }} onClick={clearAchievementNotification}>
+          <div style={{ fontSize: '2rem' }}>{newAchievement.icon}</div>
           <div>
             <div style={{ fontWeight: 700, color: '#eab308', fontSize: '0.8rem' }}>NEW ACHIEVEMENT!</div>
-            <div style={{ fontWeight: 700 }}>{newAchievement?.title || 'Achievement'}</div>
+            <div style={{ fontWeight: 700 }}>{newAchievement.title}</div>
           </div>
         </div>
       )}
 
       <SettingsModal 
-        isOpen={isSettingsOpen} 
-        onClose={() => setIsSettingsOpen(false)} 
-        settings={settings}
-        updateSetting={settingsHook?.updateSetting} 
-        updateActivityType={settingsHook?.updateActivityType} 
-        toggleWorkDay={settingsHook?.toggleWorkDay}
-        resetDaily={resetDaily} 
-        resetAll={resetAll}
+        isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} settings={settings}
+        updateSetting={settingsHook.updateSetting} updateActivityType={settingsHook.updateActivityType} toggleWorkDay={settingsHook.toggleWorkDay}
+        resetDaily={resetDaily} resetAll={resetAll}
       />
     </div>
   );
