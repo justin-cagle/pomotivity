@@ -10,7 +10,7 @@ import { useSettings } from './hooks/useSettings';
 import { useTimer } from './hooks/useTimer';
 import { useGamification } from './hooks/useGamification';
 import { useAuth } from './hooks/useAuth';
-import { Settings, Clock, Trophy, LogOut, ShieldAlert, User } from 'lucide-react';
+import { Settings, Clock, Trophy, LogOut, ShieldAlert, User, X } from 'lucide-react';
 import './App.css';
 
 function App() {
@@ -130,10 +130,16 @@ function MainContent({ currentUser, authFetch, config, logout, changePassword, d
     prevTimerState.current = timer.timerState;
   }, [timer.timerState, logSession]);
 
-  const handleCompleteActivity = useCallback((type) => {
-    logActivity(type);
+  const handleCompleteActivity = useCallback((type, name) => {
+    logActivity(type, name);
     activityDoneInSession.current = true;
   }, [logActivity]);
+
+  useEffect(() => {
+    if (!newAchievement) return;
+    const t = setTimeout(clearAchievementNotification, 6000);
+    return () => clearTimeout(t);
+  }, [newAchievement, clearAchievementNotification]);
 
   return (
     <div style={{
@@ -209,12 +215,19 @@ function MainContent({ currentUser, authFetch, config, logout, changePassword, d
       </main>
 
       {newAchievement && (
-        <div className="glass-panel animate-slide-up" style={{ position: 'fixed', bottom: '2rem', right: '2rem', padding: '1rem 1.5rem', display: 'flex', alignItems: 'center', gap: '12px', border: '2px solid #eab308', zIndex: 60, cursor: 'pointer' }} onClick={clearAchievementNotification}>
+        <div className="glass-panel animate-slide-up" style={{ position: 'fixed', bottom: '2rem', right: '2rem', padding: '1rem 1.5rem', paddingRight: '2.75rem', display: 'flex', alignItems: 'center', gap: '12px', border: '2px solid #eab308', zIndex: 60 }}>
           <div style={{ fontSize: '2rem' }}>{newAchievement.icon}</div>
           <div>
             <div style={{ fontWeight: 700, color: '#eab308', fontSize: '0.8rem' }}>NEW ACHIEVEMENT!</div>
             <div style={{ fontWeight: 700 }}>{newAchievement.title}</div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px' }}>{newAchievement.description}</div>
           </div>
+          <button
+            onClick={clearAchievementNotification}
+            style={{ position: 'absolute', top: '0.5rem', right: '0.5rem', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '4px', display: 'flex', alignItems: 'center' }}
+          >
+            <X size={16} />
+          </button>
         </div>
       )}
 

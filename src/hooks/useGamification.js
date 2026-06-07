@@ -76,7 +76,7 @@ export function useGamification(settings, userId, authFetch) {
     return earned;
   }, []);
 
-  const logActivity = useCallback((type) => {
+  const logActivity = useCallback((type, name) => {
     setStats(prev => {
       const now = new Date();
       const todayLocale = now.toLocaleDateString();
@@ -113,7 +113,7 @@ export function useGamification(settings, userId, authFetch) {
       if (dayLog.sessions.length === 0) {
         dayLog.sessions.unshift({ id: Date.now(), name: 'Break Activities', time: now.toLocaleTimeString(), activities: [] });
       }
-      dayLog.sessions[0].activities.push({ type, time: now.toLocaleTimeString(), id: Date.now() });
+      dayLog.sessions[0].activities.push({ type, name, time: now.toLocaleTimeString(), id: Date.now() });
 
       newStats.totalActivities += 1;
       newStats.allTimeActivities += 1;

@@ -60,8 +60,8 @@ function HistoryItem({ session, getIcon }) {
               color: 'var(--text-secondary)'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                {getIcon(activity.name)}
-                <span>{activity.name}</span>
+                {getIcon(activity.type)}
+                <span>{activity.name || activity.type}</span>
               </div>
               <span style={{ fontSize: '0.7rem', opacity: 0.8 }}>{activity.time}</span>
             </div>

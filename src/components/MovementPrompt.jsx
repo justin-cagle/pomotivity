@@ -33,7 +33,7 @@ export default function MovementPrompt({ isActive, settings, onCompleteActivity,
   if (!isActive || !currentActivity) return null;
 
   const handleCompleteActivity = () => {
-    onCompleteActivity(currentActivity.type);
+    onCompleteActivity(currentActivity.type, currentActivity.title);
     pickActivity();
   };
 
