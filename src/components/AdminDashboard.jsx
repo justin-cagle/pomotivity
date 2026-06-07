@@ -1,25 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Users, ShieldCheck, Activity, Award, UserCheck, Trash2, UserPlus, UserMinus, Key } from 'lucide-react';
 import { VERSION } from '../version';
 
-export default function AdminDashboard({ config, setSignupsEnabled, deleteUser, changePassword, currentUserId }) {
+export default function AdminDashboard({ config, setSignupsEnabled, deleteUser, changePassword, currentUserId, authFetch }) {
   const [users, setUsers] = useState([]);
   const [userStatsMap, setUserStatsMap] = useState({});
   const [loading, setLoading] = useState(true);
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
-      const res = await fetch('/api/users');
+      const res = await authFetch('/api/users');
       if (!res.ok) throw new Error('Failed to fetch users');
       const data = await res.json();
-      
+
       if (Array.isArray(data)) {
         setUsers(data);
-        
+
         const statsMap = {};
         for (const user of data) {
           try {
-            const sRes = await fetch(`/api/data/${user.id}`);
+            const sRes = await authFetch(`/api/data/${user.id}`);
             if (sRes.ok) {
               const sData = await sRes.json();
               statsMap[user.id] = sData.stats || { totalActivities: 0, currentStreak: 0 };
@@ -33,11 +33,11 @@ export default function AdminDashboard({ config, setSignupsEnabled, deleteUser, 
     } finally {
       setLoading(false);
     }
-  };
+  }, [authFetch]);
 
   useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [fetchUsers]);
 
   if (loading) {
     return (
@@ -57,11 +57,11 @@ export default function AdminDashboard({ config, setSignupsEnabled, deleteUser, 
 
   const handleResetPassword = async (userId, username) => {
     const newPass = window.prompt(`Enter a new password for "${username}":`);
-    if (newPass && newPass.length >= 4) {
+    if (newPass && newPass.length >= 8) {
       await changePassword(userId, newPass);
       alert(`Password for "${username}" has been reset.`);
     } else if (newPass) {
-      alert("Password must be at least 4 characters.");
+      alert("Password must be at least 8 characters.");
     }
   };
 

@@ -10,19 +10,19 @@ export default function AuthView({ login, register, config }) {
 
   const signupsEnabled = config?.signupsEnabled !== false;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    
+
     if (isLogin) {
-      const res = login(username, password);
+      const res = await login(username, password);
       if (!res.success) setError(res.message);
     } else {
       if (!signupsEnabled) {
         setError('New registrations are currently disabled.');
         return;
       }
-      const res = register(username, password, name);
+      const res = await register(username, password, name);
       if (!res.success) setError(res.message);
     }
   };

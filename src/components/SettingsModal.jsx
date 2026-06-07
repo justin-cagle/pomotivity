@@ -20,21 +20,25 @@ export default function SettingsModal({
 
   if (!isOpen) return null;
 
-  const handlePasswordChange = (e) => {
+  const handlePasswordChange = async (e) => {
     e.preventDefault();
     if (newPassword !== confirmPassword) {
       setPasswordMsg({ type: 'error', text: 'Passwords do not match' });
       return;
     }
-    if (newPassword.length < 4) {
-      setPasswordMsg({ type: 'error', text: 'Password must be at least 4 characters' });
+    if (newPassword.length < 8) {
+      setPasswordMsg({ type: 'error', text: 'Password must be at least 8 characters' });
       return;
     }
-    changePassword(currentUser.id, newPassword);
-    setPasswordMsg({ type: 'success', text: 'Password updated successfully!' });
-    setNewPassword('');
-    setConfirmPassword('');
-    setTimeout(() => setPasswordMsg({ type: '', text: '' }), 3000);
+    const result = await changePassword(currentUser.id, newPassword);
+    if (result?.success) {
+      setPasswordMsg({ type: 'success', text: 'Password updated successfully!' });
+      setNewPassword('');
+      setConfirmPassword('');
+      setTimeout(() => setPasswordMsg({ type: '', text: '' }), 3000);
+    } else {
+      setPasswordMsg({ type: 'error', text: result?.message || 'Failed to update password' });
+    }
   };
 
   return (

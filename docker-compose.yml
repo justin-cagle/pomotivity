@@ -3,4 +3,10 @@ services:
     build: .
     ports:
       - "3000:80"
+    environment:
+      - ADMIN_USER=${ADMIN_USER:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-changeme}
+      - SIGNUPS_ENABLED=${SIGNUPS_ENABLED:-true}
+    volumes:
+      - ./data:/app/data
     restart: always

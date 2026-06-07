@@ -1,25 +1,22 @@
-# Build stage
-FROM node:20-alpine as build-stage
+# Build stage — compile native deps and build frontend
+FROM node:20-alpine AS build-stage
+RUN apk add --no-cache python3 make g++
 WORKDIR /app
 COPY package*.json ./
 RUN npm install
 COPY . .
-RUN npm run build
+RUN npm run build && npm prune --production
 
-# Production stage
-FROM node:20-alpine as production-stage
+# Production stage — no build tools needed
+FROM node:20-alpine AS production-stage
 WORKDIR /app
-COPY package*.json ./
-RUN npm install --production
+COPY --from=build-stage /app/node_modules ./node_modules
 COPY --from=build-stage /app/dist ./dist
-COPY --from=build-stage /app/server.js ./
-COPY --from=build-stage /app/src/data ./src/data
-COPY --from=build-stage /app/src/version.js ./src/version.js
+COPY server.js ./
+COPY src/version.js ./src/version.js
 
-# Create data directory for persistence
 RUN mkdir -p /app/data
 
-# Healthcheck
 HEALTHCHECK --interval=30s --timeout=3s \
   CMD wget -qO- http://localhost/health.json | grep -q "up" || exit 1
 

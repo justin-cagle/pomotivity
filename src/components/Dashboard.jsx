@@ -136,7 +136,7 @@ export default function Dashboard({ stats, settings }) {
 
         <div className="glass-panel" style={{ padding: '1rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
           <Award size={24} color="#eab308" style={{ marginBottom: '8px' }} />
-          <div style={{ fontSize: '1.5rem', fontWeight: 800 }}>{stats.unlockedAchievements?.length || 0}</div>
+          <div style={{ fontSize: '1.5rem', fontWeight: 800 }}>{stats.achievements?.length || 0}</div>
           <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>Badges</div>
         </div>
       </div>
@@ -280,7 +280,7 @@ export default function Dashboard({ stats, settings }) {
             padding: '0 0.5rem 0.5rem'
           }}>
             {achievements.map(ach => {
-              const isUnlocked = stats.unlockedAchievements?.includes(ach.id);
+              const isUnlocked = stats.achievements?.includes(ach.id);
               return (
                 <div key={ach.id} style={{
                   aspectRatio: '1',

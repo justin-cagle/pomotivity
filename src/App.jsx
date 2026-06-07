@@ -14,8 +14,8 @@ import { Settings, Clock, Trophy, LogOut, ShieldAlert, User } from 'lucide-react
 import './App.css';
 
 function App() {
-  const { currentUser, users, config, login, register, logout, changePassword, deleteUser, setSignupsEnabled } = useAuth();
-  
+  const { currentUser, authFetch, config, login, register, logout, changePassword, deleteUser, setSignupsEnabled } = useAuth();
+
   if (!currentUser) {
     return (
       <>
@@ -27,11 +27,12 @@ function App() {
 
   return (
     <>
-      <MainContent 
-        key={currentUser.id} 
-        currentUser={currentUser} 
+      <MainContent
+        key={currentUser.id}
+        currentUser={currentUser}
+        authFetch={authFetch}
         config={config}
-        logout={logout} 
+        logout={logout}
         changePassword={changePassword}
         deleteUser={deleteUser}
         setSignupsEnabled={setSignupsEnabled}
@@ -41,12 +42,12 @@ function App() {
   );
 }
 
-function MainContent({ currentUser, config, logout, changePassword, deleteUser, setSignupsEnabled }) {
-  const settingsHook = useSettings(currentUser.id);
+function MainContent({ currentUser, authFetch, config, logout, changePassword, deleteUser, setSignupsEnabled }) {
+  const settingsHook = useSettings(currentUser.id, authFetch);
   const settings = settingsHook.settings;
-  
+
   const timer = useTimer(settings);
-  const gamification = useGamification(settings, currentUser.id);
+  const gamification = useGamification(settings, currentUser.id, authFetch);
   
   const { stats, logActivity, logSession, newAchievement, clearAchievementNotification, resetDaily, resetAll } = gamification;
   
@@ -195,12 +196,13 @@ function MainContent({ currentUser, config, logout, changePassword, deleteUser, 
           )}
           {activeTab === 'dashboard' && <Dashboard stats={stats} settings={settings} />}
           {activeTab === 'admin' && currentUser.role === 'admin' && (
-            <AdminDashboard 
-              config={config} 
-              setSignupsEnabled={setSignupsEnabled} 
+            <AdminDashboard
+              config={config}
+              setSignupsEnabled={setSignupsEnabled}
               deleteUser={deleteUser}
               changePassword={changePassword}
               currentUserId={currentUser.id}
+              authFetch={authFetch}
             />
           )}
         </div>

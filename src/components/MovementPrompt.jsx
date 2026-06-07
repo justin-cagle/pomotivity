@@ -2,27 +2,24 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { activities } from '../data/activities';
 import { CheckCircle2, Dumbbell, Activity, Eye, Zap, AlertTriangle, SkipForward } from 'lucide-react';
 
+const TYPE_MAP = { stretching: 'Stretching', cardio: 'Cardio', strength: 'Strength', eye_neck: 'Eye/Neck Care' };
+
 export default function MovementPrompt({ isActive, settings, onCompleteActivity, onSkipBreak }) {
   const [currentActivity, setCurrentActivity] = useState(null);
   const [showSkipWarning, setShowSkipWarning] = useState(false);
 
   const pickActivity = useCallback(() => {
-    const allowedTypes = Object.keys(settings.activityTypes).filter(t => settings.activityTypes[t]);
-    const available = activities.filter(a => allowedTypes.includes(a.type) || allowedTypes.length === 0);
-    
+    const allowed = new Set((settings.allowedActivities || []).map(k => TYPE_MAP[k]).filter(Boolean));
+    const available = allowed.size > 0 ? activities.filter(a => allowed.has(a.type)) : activities;
+
     if (available.length > 0) {
-      // Avoid picking the same activity twice in a row if possible
-      const filtered = currentActivity 
-        ? available.filter(a => a.id !== currentActivity.id)
-        : available;
-      
+      const filtered = currentActivity ? available.filter(a => a.id !== currentActivity.id) : available;
       const pool = filtered.length > 0 ? filtered : available;
-      const random = pool[Math.floor(Math.random() * pool.length)];
-      setCurrentActivity(random);
+      setCurrentActivity(pool[Math.floor(Math.random() * pool.length)]);
     } else {
       setCurrentActivity(activities[0]);
     }
-  }, [settings.activityTypes, currentActivity]);
+  }, [settings.allowedActivities, currentActivity]);
 
   useEffect(() => {
     if (isActive && !currentActivity) {

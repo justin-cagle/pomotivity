@@ -6,79 +6,59 @@ const DEFAULT_SETTINGS = {
   visualNotifications: true,
   audioNotifications: true,
   systemNotifications: false,
-  showMovementDescription: true,
+  showInstructions: true,
   theme: 'system',
   allowedActivities: ['stretching', 'cardio', 'strength', 'eye_neck'],
   workDays: [1, 2, 3, 4, 5],
   dailyGoal: 4
 };
 
-export function useSettings(userId) {
+export function useSettings(userId, authFetch) {
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load from API
   useEffect(() => {
     if (!userId) return;
-    
     const loadSettings = async () => {
       try {
-        const res = await fetch(`/api/data/${userId}`);
+        const res = await authFetch(`/api/data/${userId}`);
         const data = await res.json();
         if (data.settings) {
-          setSettings(data.settings);
+          setSettings({ ...DEFAULT_SETTINGS, ...data.settings });
         } else {
-          // If no server settings, try local storage (migration)
           const local = localStorage.getItem(`pomotivity_settings_${userId}`);
           if (local) {
             const parsed = JSON.parse(local);
-            setSettings(parsed);
-            // Sync to server immediately
-            fetch(`/api/data/${userId}/settings`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: local
-            });
+            setSettings({ ...DEFAULT_SETTINGS, ...parsed });
+            authFetch(`/api/data/${userId}/settings`, { method: 'POST', body: local });
           }
         }
       } catch (e) {}
       setIsLoading(false);
     };
-
     loadSettings();
-  }, [userId]);
+  }, [userId, authFetch]);
 
   const updateSetting = useCallback((key, value) => {
     setSettings(prev => {
       const updated = { ...prev, [key]: value };
-      // Async sync to server
-      fetch(`/api/data/${userId}/settings`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updated)
-      });
-      // Also update local for offline fallback
+      authFetch(`/api/data/${userId}/settings`, { method: 'POST', body: JSON.stringify(updated) });
       localStorage.setItem(`pomotivity_settings_${userId}`, JSON.stringify(updated));
       return updated;
     });
-  }, [userId]);
+  }, [userId, authFetch]);
 
   const updateActivityType = useCallback((type, enabled) => {
     setSettings(prev => {
-      const newList = enabled 
+      const newList = enabled
         ? [...prev.allowedActivities, type]
         : prev.allowedActivities.filter(a => a !== type);
       const updated = { ...prev, allowedActivities: newList };
-      
-      fetch(`/api/data/${userId}/settings`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updated)
-      });
+      authFetch(`/api/data/${userId}/settings`, { method: 'POST', body: JSON.stringify(updated) });
       localStorage.setItem(`pomotivity_settings_${userId}`, JSON.stringify(updated));
       return updated;
     });
-  }, [userId]);
+  }, [userId, authFetch]);
 
   const toggleWorkDay = useCallback((day) => {
     setSettings(prev => {
@@ -86,16 +66,11 @@ export function useSettings(userId) {
         ? prev.workDays.filter(d => d !== day)
         : [...prev.workDays, day];
       const updated = { ...prev, workDays: newList };
-      
-      fetch(`/api/data/${userId}/settings`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updated)
-      });
+      authFetch(`/api/data/${userId}/settings`, { method: 'POST', body: JSON.stringify(updated) });
       localStorage.setItem(`pomotivity_settings_${userId}`, JSON.stringify(updated));
       return updated;
     });
-  }, [userId]);
+  }, [userId, authFetch]);
 
   return { settings, updateSetting, updateActivityType, toggleWorkDay, isLoading };
 }

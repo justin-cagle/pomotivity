@@ -1,32 +1,33 @@
 import { useState, useEffect, useCallback } from 'react';
 
-const SESSION_KEY = 'pomotivity_current_user';
+const TOKEN_KEY = 'pomotivity_token';
+const USER_KEY = 'pomotivity_current_user';
 
 export function useAuth() {
+  const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY));
   const [currentUser, setCurrentUser] = useState(() => {
-    const saved = localStorage.getItem(SESSION_KEY);
+    const saved = localStorage.getItem(USER_KEY);
     return saved ? JSON.parse(saved) : null;
   });
-
   const [config, setConfig] = useState({ signupsEnabled: true });
-  const [users, setUsers] = useState([]); // Used for admin view mainly
 
-  // Fetch config and users (if admin)
-  const refreshData = useCallback(async () => {
-    try {
-      const configRes = await fetch('/api/config');
-      if (configRes.ok) setConfig(await configRes.json());
-
-      if (currentUser?.role === 'admin') {
-        // In a real app we'd have a specific endpoint for users list
-        // For simplicity, we'll fetch them if needed
+  const authFetch = useCallback((url, options = {}) => {
+    return fetch(url, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...options.headers
       }
-    } catch (e) {}
-  }, [currentUser?.role]);
+    });
+  }, [token]);
 
   useEffect(() => {
-    refreshData();
-  }, [refreshData]);
+    fetch('/api/config')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) setConfig(data); })
+      .catch(() => {});
+  }, []);
 
   const login = useCallback(async (username, password) => {
     try {
@@ -37,8 +38,10 @@ export function useAuth() {
       });
       const data = await res.json();
       if (data.success) {
+        setToken(data.token);
         setCurrentUser(data.user);
-        localStorage.setItem(SESSION_KEY, JSON.stringify(data.user));
+        localStorage.setItem(TOKEN_KEY, data.token);
+        localStorage.setItem(USER_KEY, JSON.stringify(data.user));
         return { success: true };
       }
       return { success: false, message: data.message };
@@ -56,8 +59,10 @@ export function useAuth() {
       });
       const data = await res.json();
       if (data.success) {
+        setToken(data.token);
         setCurrentUser(data.user);
-        localStorage.setItem(SESSION_KEY, JSON.stringify(data.user));
+        localStorage.setItem(TOKEN_KEY, data.token);
+        localStorage.setItem(USER_KEY, JSON.stringify(data.user));
         return { success: true };
       }
       return { success: false, message: data.message };
@@ -66,58 +71,62 @@ export function useAuth() {
     }
   }, []);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    try {
+      if (token) {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      }
+    } catch (e) {}
+    setToken(null);
     setCurrentUser(null);
-    localStorage.removeItem(SESSION_KEY);
-  }, []);
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+  }, [token]);
 
   const changePassword = useCallback(async (userId, newPassword) => {
     try {
-      const res = await fetch(`/api/users/${userId}/password`, {
+      const res = await authFetch(`/api/users/${userId}/password`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ newPassword })
       });
-      const data = await res.json();
-      if (data.success && currentUser?.id === userId) {
-        const updated = { ...currentUser, password: newPassword };
-        setCurrentUser(updated);
-        localStorage.setItem(SESSION_KEY, JSON.stringify(updated));
-      }
-      return data;
-    } catch (e) {
-      return { success: false };
-    }
-  }, [currentUser]);
-
-  const deleteUser = useCallback(async (userId) => {
-    try {
-      const res = await fetch(`/api/users/${userId}`, { method: 'DELETE' });
       return await res.json();
     } catch (e) {
       return { success: false };
     }
-  }, []);
+  }, [authFetch]);
+
+  const deleteUser = useCallback(async (userId) => {
+    try {
+      const res = await authFetch(`/api/users/${userId}`, { method: 'DELETE' });
+      return await res.json();
+    } catch (e) {
+      return { success: false };
+    }
+  }, [authFetch]);
 
   const setSignupsEnabled = useCallback(async (enabled) => {
     try {
-      const res = await fetch('/api/config', {
+      const res = await authFetch('/api/config', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ signupsEnabled: enabled })
       });
       if (res.ok) setConfig(await res.json());
     } catch (e) {}
-  }, []);
+  }, [authFetch]);
 
-  return { 
-    currentUser, 
+  return {
+    currentUser,
+    token,
+    authFetch,
     config,
-    login, 
-    register, 
-    logout, 
-    changePassword, 
-    deleteUser, 
-    setSignupsEnabled 
+    login,
+    register,
+    logout,
+    changePassword,
+    deleteUser,
+    setSignupsEnabled
   };
 }
